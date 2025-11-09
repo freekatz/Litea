@@ -324,24 +324,9 @@
         </div>
 
         <div class="modal-footer">
-          <div class="footer-left">
-            <button 
-              v-if="task && (task as any).id" 
-              type="button" 
-              @click="confirmDelete" 
-              class="btn-delete"
-            >
-              <svg class="w-4 h-4 mr-1 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              删除任务
-            </button>
-          </div>
-          <div class="footer-right">
-            <button type="button" @click="handleClose" class="btn-cancel">取消</button>
-            <button type="submit" :disabled="!canSubmit" class="btn-submit">保存</button>
-            <button type="button" @click="handleSaveAndStart" :disabled="!canSubmit" class="btn-submit-primary">保存并启动</button>
-          </div>
+          <button type="button" @click="handleClose" class="btn-cancel">取消</button>
+          <button type="submit" :disabled="!canSubmit" class="btn-submit">保存</button>
+          <button type="button" @click="handleSaveAndStart" :disabled="!canSubmit" class="btn-submit-primary">保存并启动</button>
         </div>
       </form>
     </div>
@@ -678,25 +663,6 @@ async function handleSaveAndStart() {
   }
 }
 
-async function confirmDelete() {
-  if (!props.task || !(props.task as any).id) return
-  
-  const confirmed = confirm(
-    `确定要删除任务「${props.task.name}」吗？\n\n任务及其关联的所有文献都将被永久删除，此操作不可恢复。`
-  )
-  
-  if (!confirmed) return
-  
-  try {
-    await tasksApi.delete((props.task as any).id)
-    alert('任务已删除')
-    emit('saved')  // 关闭对话框并刷新列表
-  } catch (error) {
-    console.error('Failed to delete task:', error)
-    alert('删除失败，请重试')
-  }
-}
-
 onMounted(() => {
   if (props.task) {
     form.value.name = props.task.name
@@ -998,38 +964,11 @@ onMounted(() => {
 
 .modal-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
-}
-
-.footer-left {
-  flex: 0;
-}
-
-.footer-right {
-  display: flex;
-  gap: 12px;
-}
-
-.btn-delete {
-  padding: 8px 16px;
-  border: 1px solid #dc2626;
-  border-radius: 4px;
-  background: white;
-  color: #dc2626;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s;
-}
-
-.btn-delete:hover {
-  background: #dc2626;
-  color: white;
 }
 
 .btn-cancel {

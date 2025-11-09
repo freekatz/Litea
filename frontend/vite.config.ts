@@ -12,6 +12,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: true,
+    allowedHosts: ['localhost'],
     proxy: {
       '/api': {
         target: 'http://localhost:6060',
@@ -23,7 +25,7 @@ export default defineConfig({
   preview: {
     port: 3000,
     host: true,
-    allowedHosts: ['localhost', 'litea.1uvu.com', 'litea.wlb.life'],
+    allowedHosts: ['localhost'],
     proxy: {
       "/api": {
         target: "http://localhost:6060",
