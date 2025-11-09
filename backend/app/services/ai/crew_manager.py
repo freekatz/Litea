@@ -66,13 +66,22 @@ class CrewManager:
         llm_str = self._build_llm_string(model_override)
         logger.debug(f"Building agent '{name}' with LLM: {llm_str}")
         
+        # Import LiteLLM's ChatLiteLLM for proper LLM object
+        try:
+            from langchain_community.chat_models import ChatLiteLLM
+            llm_obj = ChatLiteLLM(model=llm_str, temperature=0.7)
+        except ImportError:
+            # Fallback to string if langchain_community not available
+            logger.warning("langchain_community not available, using string for LLM")
+            llm_obj = llm_str
+        
         return Agent(
             role=role,
             goal=goal,
             backstory=backstory,
             verbose=True,
             allow_delegation=False,
-            llm=llm_str,
+            llm=llm_obj,
         )
 
     def build_filtering_crew(self, context: Dict[str, Any], documents: List[Dict[str, Any]]) -> Crew:
@@ -206,6 +215,8 @@ class CrewManager:
         # 默认筛选提示词
         default_filter_prompt = """请仔细阅读上述文献的完整信息，特别是摘要部分，然后评估：
 
+**重要：请使用中文回答所有内容**
+
 1. **相关性判断** (is_selected): 
    - 文献内容是否与研究主题直接相关？
    - 是否包含所需的关键信息或方法？
@@ -219,11 +230,11 @@ class CrewManager:
    - 0.0-0.4: 基本不相关
 
 3. **文献总结** (summary): 
-   - 用1-2句话总结文献的核心内容
+   - 用1-2句中文总结文献的核心内容
    - 说明为什么选择或不选择这篇文献
 
 4. **关键亮点** (highlights): 
-   - 列出2-4个关键发现或创新点
+   - 用中文列出2-4个关键发现或创新点
    - 与研究主题最相关的部分"""
         
         # 使用自定义提示词或默认提示词
@@ -249,14 +260,17 @@ class CrewManager:
 
 {evaluation_guide}
 
-请仔细阅读完整摘要后再做出判断。输出格式必须是有效的JSON对象。
+**输出要求：**
+- 必须是有效的JSON对象
+- summary 和 highlights 必须使用中文
+- 仔细阅读完整摘要后再做出判断
 """,
             expected_output="""{
   "external_id": "document_id",
   "is_selected": true,
   "score": 0.85,
-  "summary": "文献核心内容总结，说明选择或不选择的理由",
-  "highlights": ["关键发现1", "关键发现2", "创新点3"]
+  "summary": "（中文）文献核心内容总结，说明选择或不选择的理由",
+  "highlights": ["（中文）关键发现1", "（中文）关键发现2", "（中文）创新点3"]
 }""",
             agent=analyst,
         )
@@ -309,29 +323,31 @@ class CrewManager:
         # 默认总结提示词
         default_summary_prompt = """请从以下角度进行分析：
 
+**重要：请使用中文回答所有内容**
+
 1. **趋势总结** (trend_summary): 
-   - 当前研究领域的主要趋势和发展方向
+   - 用中文描述当前研究领域的主要趋势和发展方向
    - 热点问题和研究焦点
    - 技术路线和方法论的演进
    - 2-3个段落，清晰连贯
 
 2. **文献排名** (rankings):
    - 按重要性和相关性对文献进行排序
-   - 说明每篇文献的核心贡献和推荐理由
+   - 用中文说明每篇文献的核心贡献和推荐理由
    - 最多10篇
 
 3. **主题分类** (sections):
    - 按研究主题或方法论对文献进行分组
-   - 每个类别包含相关文献列表和简要描述
+   - 每个类别包含相关文献列表和中文描述
    - 4-6个主题类别
 
 4. **关键洞察** (key_insights):
-   - 从文献中提炼的关键发现和创新点
+   - 用中文从文献中提炼的关键发现和创新点
    - 值得关注的研究进展
    - 5-8条核心观点
 
 5. **研究方向建议** (research_directions):
-   - 基于当前文献的未来研究方向建议
+   - 用中文基于当前文献提出未来研究方向建议
    - 潜在的研究缺口和机会
    - 3-5个方向"""
         
@@ -342,6 +358,8 @@ class CrewManager:
         task_desc = f"""
 任务：对筛选后的高相关性文献进行深度分析和综合总结。
 
+**重要：所有分析内容必须使用中文**
+
 研究主题: {prompt}
 文献总数: {len(documents)}
 
@@ -349,15 +367,17 @@ Top 相关文献（按评分排序）:
 {docs_summary}
 
 {analysis_guide}
+
+**输出要求：所有文本内容（trend_summary, reason, description, key_insights, research_directions）必须使用中文**
 """
         
         expected_output = """{
-  "trend_summary": "详细的趋势总结（2-3段落）...",
+  "trend_summary": "（中文）详细的趋势总结（2-3段落）...",
   "rankings": [
     {
       "title": "文献标题",
       "score": 0.95,
-      "reason": "核心贡献和推荐理由",
+      "reason": "（中文）核心贡献和推荐理由",
       "external_id": "paper_id"
     }
   ],
@@ -365,16 +385,16 @@ Top 相关文献（按评分排序）:
     {
       "category": "研究主题或方法分类",
       "papers": ["文献标题1", "文献标题2"],
-      "description": "该类别的简要描述"
+      "description": "（中文）该类别的简要描述"
     }
   ],
   "key_insights": [
-    "关键发现1",
-    "关键发现2"
+    "（中文）关键发现1",
+    "（中文）关键发现2"
   ],
   "research_directions": [
-    "未来研究方向1",
-    "未来研究方向2"
+    "（中文）未来研究方向1",
+    "（中文）未来研究方向2"
   ]
 }"""
         
