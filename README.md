@@ -1,14 +1,23 @@
 # Litea: Literature with a cup of tea!
 
+
+![p3](./docs/pp3.png)
+
+
 Litea 是一款面向科研人员的自托管文献检索与智能推送助手，聚焦于以下能力:
 
 - 多来源文献检索，当前默认接入 arXiv，并预留扩展接口以快速支持 PyPaperBot 生态中的更多源。
 - 基于多智能体（CrewAI）的文献筛选与总结工作流，支持不同模型供应商（OpenAI、DeepSeek、Doubao、Qwen 等）的灵活配置。
 - **MCP (Model Context Protocol) 集成**：邮件推送和飞书群机器人通知基于统一的 MCP 协议实现，易于扩展更多通知渠道。
-- 任务化的文献追踪与推送，支持定时运行、多渠道通知（邮件、飞书）以及结果的结构化存储。
+- 任务化的文献追踪与推送，支持定时运行、多渠道通知，还支持选择感兴趣文献导出到 Zotero。
 - SQLite 持久化记录检索历史、筛选结果、总结内容，可平滑迁移到 MySQL/PostgreSQL 等数据库。
 - 现代化的 Vue 3 + Tailwind 前端界面，包含任务配置、历史浏览与分析页。
 - **简单身份认证**：基于 JWT 的 admin 账户认证，密码保存在 .env 中，token 30天过期。
+
+![p1](./docs/pp1.png)
+
+![p2](./docs/pp2.png)
+
 
 ## 目录
 

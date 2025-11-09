@@ -640,10 +640,13 @@ async function handleSaveAndStart() {
     let taskId = (props.task as any)?.id
     // 判断是更新还是创建：有task且有id才是更新
     if (props.task && (props.task as any).id) {
-      await tasksApi.update((props.task as any).id, taskData)
+      const response = await tasksApi.update((props.task as any).id, taskData)
+      // 后端返回 {data: {...}}，需要提取 data.id
+      taskId = response.data?.id || (props.task as any).id
     } else {
       const response = await tasksApi.create(taskData)
-      taskId = response.id
+      // 后端返回 {data: {...}}，需要提取 data.id
+      taskId = response.data?.id
       console.log('任务创建成功, ID:', taskId)
     }
     
