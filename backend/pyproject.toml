@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "litea-backend"
+version = "0.1.0"
+description = "Literature retrieval and AI assisted summarization backend"
+authors = [{name = "Litea Team"}]
+requires-python = ">=3.10"
+dependencies = [
+  "aiohttp>=3.9",
+  "aiohttp-cors>=0.7",
+  "pydantic>=2.4",
+  "pydantic-settings>=2.2",
+  "sqlalchemy[asyncio]>=2.0",
+  "aiosqlite>=0.19",
+  "alembic>=1.12",
+  "apscheduler>=3.10",
+  "pyzotero>=1.5",
+  "crewai>=0.28",
+  "litellm>=1.40",
+  "python-dotenv>=1.0",
+  "loguru>=0.7",
+  "aiosmtplib>=2.0",
+  "pypaperbot>=1.4.1",
+  "httpx>=0.26",
+  "jinja2>=3.1",
+  "pyjwt>=2.8",
+  "uvloop>=0.19; platform_system != 'Windows'",
+  "pytest>=7.4",
+  "pytest-asyncio>=0.21",
+  "pytest-cov>=4.1"
+]
+
+[tool.setuptools.packages.find]
+where = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers --disable-warnings"
+
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests"
+]
