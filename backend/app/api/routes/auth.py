@@ -18,7 +18,7 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
-def verify_token(token: str) -> dict | None:
+def verify_token(token: str):
     """Verify JWT token."""
     try:
         settings = get_settings()

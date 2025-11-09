@@ -78,7 +78,7 @@ pip install -e .
 # 初始化数据库
 python init_db.py
 
-# 启动服务（默认端口 8080）
+# 启动服务（默认端口 6060）
 python -m app.main
 
 # 启动并后台运行
@@ -86,7 +86,7 @@ screen -S backend
 python -m app.main
 ```
 
-后端 API 运行在 http://localhost:8080
+后端 API 运行在 http://localhost:6060
 
 ### 前端启动
 

@@ -407,7 +407,7 @@ import { analyticsApi } from '@/api/analytics'
 import TaskForm from '@/components/tasks/TaskForm.vue'
 import DocumentCharts from '@/components/documents/DocumentCharts.vue'
 
-const API_BASE_URL = 'http://localhost:8080'
+const API_BASE_URL = 'http://localhost:6060'
 
 interface Task {
   id: number

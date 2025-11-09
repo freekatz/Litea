@@ -14,9 +14,21 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:6060',
         changeOrigin: true
       }
     }
-  }
+  },
+  // 生产预览服务器配置
+  preview: {
+    port: 3000,
+    host: true,
+    allowedHosts: ['localhost', 'litea.1uvu.com', 'litea.wlb.life'],
+    proxy: {
+      "/api": {
+        target: "http://localhost:6060",
+        changeOrigin: true,
+      },
+    },
+  },
 })

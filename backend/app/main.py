@@ -111,7 +111,7 @@ async def create_app() -> web.Application:
 
 
 def main() -> None:
-    web.run_app(create_app(), port=8080)
+    web.run_app(create_app(), port=6060)
 
 
 if __name__ == "__main__":
