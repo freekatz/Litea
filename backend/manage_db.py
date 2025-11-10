@@ -152,6 +152,20 @@ async def init_database(force=False):
         for table_name in sorted(Base.metadata.tables.keys()):
             print(f"  - {table_name}")
         
+        # 显示 tasks 表的关键字段
+        from sqlalchemy import inspect as sync_inspect
+        async with engine.connect() as conn:
+            def get_columns(connection):
+                inspector = sync_inspect(connection)
+                return inspector.get_columns('tasks')
+            
+            columns = await conn.run_sync(get_columns)
+            print("\ntasks 表字段:")
+            for col in columns:
+                null_info = "NULL" if col['nullable'] else "NOT NULL"
+                default_info = f" DEFAULT {col['default']}" if col.get('default') else ""
+                print(f"  - {col['name']}: {col['type']} {null_info}{default_info}")
+        
         await engine.dispose()
         print("\n" + "=" * 60)
         return True

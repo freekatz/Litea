@@ -81,7 +81,7 @@
           <label>数据来源</label>
           <label class="checkbox-label">
             <input v-model="sourceArxiv" type="checkbox" />
-            <span>arXiv</span>
+            <span>{{ defaultRetrievalLabel }}</span>
           </label>
         </div>
 
@@ -119,21 +119,19 @@
                 <div class="form-group">
                   <label>推送渠道</label>
                   <div class="checkbox-group">
-                    <label class="checkbox-label">
-                      <input 
-                        type="checkbox" 
-                        value="email" 
-                        v-model="form.notification.channels" 
+                    <label
+                      v-for="channel in displayNotificationChannels"
+                      :key="channel.value"
+                      class="checkbox-label"
+                    >
+                      <input
+                        type="checkbox"
+                        :value="channel.value"
+                        v-model="form.notification.channels"
                       />
-                      📧 邮件推送
-                    </label>
-                    <label class="checkbox-label">
-                      <input 
-                        type="checkbox" 
-                        value="feishu" 
-                        v-model="form.notification.channels" 
-                      />
-                      🔔 飞书群机器人
+                      <span>
+                        <span v-if="channel.displayIcon">{{ channel.displayIcon }} </span>{{ channel.label }}
+                      </span>
                     </label>
                   </div>
                 </div>
@@ -197,10 +195,13 @@
                   <div class="form-col">
                     <label>提供商</label>
                     <select v-model="form.ai_config.provider" class="form-input">
-                      <option value="deepseek">DeepSeek</option>
-                      <option value="openai">OpenAI</option>
-                      <option value="doubao">豆包</option>
-                      <option value="qwen">通义千问</option>
+                      <option
+                        v-for="provider in aiProviderOptions"
+                        :key="provider.value"
+                        :value="provider.value"
+                      >
+                        {{ provider.label }}
+                      </option>
                     </select>
                   </div>
                   <div class="form-col">
@@ -294,8 +295,13 @@
                   <div class="form-col">
                     <label>展示模式</label>
                     <select v-model="form.summary_config.display_mode" class="form-input">
-                      <option value="grouped">按来源分组</option>
-                      <option value="ranked">按排名展示</option>
+                      <option
+                        v-for="mode in summaryDisplayModes"
+                        :key="mode.value"
+                        :value="mode.value"
+                      >
+                        {{ mode.label }}
+                      </option>
                     </select>
                   </div>
                   <div class="form-col">
@@ -336,59 +342,45 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { tasksApi } from '@/api/tasks'
+import {
+  aiProviderOptions,
+  summaryDisplayModes,
+  notificationChannels,
+  filterDefaults,
+  notificationChannelIconMap,
+  retrievalSourceOptions,
+  defaultFilterPrompt,
+  defaultSummaryPrompt
+} from '@/config/static'
 
 // 默认提示词常量
-const defaultFilterPrompt = `请仔细阅读文献的完整信息，特别是摘要部分，然后评估：
+const channelIconAliases: Record<string, string> = {
+  mail: '📧',
+  bell: '🔔'
+}
 
-1. **相关性判断** (is_selected): 
-   - 文献内容是否与研究主题直接相关？
-   - 是否包含所需的关键信息或方法？
-   - 返回 true（相关）或 false（不相关）
+function getChannelDisplayIcon(value: string): string {
+  const iconKey = notificationChannelIconMap[value]
+  return iconKey && channelIconAliases[iconKey] ? channelIconAliases[iconKey] : ''
+}
 
-2. **相关性评分** (score): 
-   - 给出 0-1 之间的相关性评分
-   - 0.8-1.0: 高度相关，核心文献
-   - 0.6-0.8: 中度相关，参考价值
-   - 0.4-0.6: 低度相关，边缘相关
-   - 0.0-0.4: 基本不相关
+const displayNotificationChannels = computed(() =>
+  notificationChannels.map(channel => ({
+    ...channel,
+    displayIcon: getChannelDisplayIcon(channel.value)
+  }))
+)
 
-3. **文献总结** (summary): 
-   - 用1-2句话总结文献的核心内容
-   - 说明为什么选择或不选择这篇文献
+const DEFAULT_FILTER_MIN_SCORE = typeof filterDefaults.min_relevance_score === 'number'
+  ? filterDefaults.min_relevance_score
+  : 0.6
 
-4. **关键亮点** (highlights): 
-   - 列出2-4个关键发现或创新点
-   - 与研究主题最相关的部分`
+const DEFAULT_FILTER_MAX_DOCS = typeof filterDefaults.max_documents_per_source === 'number'
+  ? filterDefaults.max_documents_per_source
+  : 50
 
-const defaultSummaryPrompt = `对筛选后的文献进行深度分析和综合总结。
-
-请从以下角度进行分析：
-
-1. **趋势总结** (trend_summary): 
-   - 当前研究领域的主要趋势和发展方向
-   - 热点问题和研究焦点
-   - 技术路线和方法论的演进
-   - 2-3个段落，清晰连贯
-
-2. **文献排名** (rankings):
-   - 按重要性和相关性对文献进行排序
-   - 说明每篇文献的核心贡献和推荐理由
-   - 最多10篇
-
-3. **主题分类** (sections):
-   - 按研究主题或方法论对文献进行分组
-   - 每个类别包含相关文献列表和简要描述
-   - 4-6个主题类别
-
-4. **关键洞察** (key_insights):
-   - 从文献中提炼的关键发现和创新点
-   - 值得关注的研究进展
-   - 5-8条核心观点
-
-5. **研究方向建议** (research_directions):
-   - 基于当前文献的未来研究方向建议
-   - 潜在的研究缺口和机会
-   - 3-5个方向`
+const defaultRetrievalSource = retrievalSourceOptions[0]?.value ?? 'arxiv'
+const defaultRetrievalLabel = retrievalSourceOptions[0]?.label ?? 'arXiv'
 
 interface Task {
   id: number
@@ -429,7 +421,7 @@ const form = ref({
     options: {} as any
   },
   ai_config: {
-    provider: 'deepseek',
+    provider: aiProviderOptions[0]?.value ?? 'deepseek',
     model: 'deepseek-chat',
     temperature: 0.7,
     max_tokens: null as number | null
@@ -437,15 +429,15 @@ const form = ref({
   filter_config: {
     enabled: true,
     filter_prompt: null as string | null,
-    min_relevance_score: 0.6,
-    max_documents_per_source: 50
+    min_relevance_score: DEFAULT_FILTER_MIN_SCORE,
+    max_documents_per_source: DEFAULT_FILTER_MAX_DOCS
   },
   summary_config: {
     enabled: true,
     summary_prompt: null as string | null,
     generate_individual_summary: true,
     generate_overall_summary: true,
-    display_mode: 'grouped',
+    display_mode: summaryDisplayModes[0]?.value ?? 'grouped',
     items_per_source: 5,
     top_n_ranked: 10,
     include_trends: true
@@ -541,7 +533,7 @@ async function handleSubmit() {
 
   // 准备数据源（字符串数组转对象数组）
   const sources = sourceArxiv.value ? [{
-    source_name: 'arxiv',
+    source_name: defaultRetrievalSource,
     parameters: {}
   }] : []
   
@@ -598,7 +590,7 @@ async function handleSaveAndStart() {
 
   // 准备数据源（字符串数组转对象数组）
   const sources = sourceArxiv.value ? [{
-    source_name: 'arxiv',
+    source_name: defaultRetrievalSource,
     parameters: {}
   }] : []
   
@@ -685,7 +677,7 @@ onMounted(() => {
       form.value.data_sources = props.task.data_sources.map(src =>
         typeof src === 'string' ? src : src.source_name
       )
-      sourceArxiv.value = form.value.data_sources.includes('arxiv')
+      sourceArxiv.value = form.value.data_sources.includes(defaultRetrievalSource)
     } else {
       form.value.data_sources = []
       sourceArxiv.value = true  // 默认选中 arXiv

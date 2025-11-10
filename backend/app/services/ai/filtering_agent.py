@@ -8,7 +8,13 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+from app.config import get_settings
 from app.services.ai.crew_manager import CrewManager
+
+_SETTINGS = get_settings()
+_FILTER_DEFAULTS = (_SETTINGS.static.filter_defaults if _SETTINGS.static else {})
+DEFAULT_MIN_SCORE = float(_FILTER_DEFAULTS.get("min_relevance_score", 0.4))
+DEFAULT_MAX_DOCS_PER_SOURCE = int(_FILTER_DEFAULTS.get("max_documents_per_source", 50))
 
 
 class FilteringAgentService:
@@ -37,7 +43,7 @@ class FilteringAgentService:
             return self._create_fallback_results(documents)
         
         # 限制每个来源的文档数量
-        max_docs = filter_config.get("max_documents_per_source", 50)
+        max_docs = int(filter_config.get("max_documents_per_source", DEFAULT_MAX_DOCS_PER_SOURCE))
         documents_to_filter = documents[:max_docs] if len(documents) > max_docs else documents
         
         logger.info(f"Filtering {len(documents_to_filter)} documents (out of {len(documents)}) for task: {task_context.get('task_name', 'unknown')}")
@@ -130,7 +136,7 @@ class FilteringAgentService:
             return []
         
         # 获取最低相关度阈值
-        min_score = filter_config.get("min_relevance_score", 0.6)
+        min_score = float(filter_config.get("min_relevance_score", DEFAULT_MIN_SCORE))
         
         normalized: List[Dict[str, Any]] = []
         doc_map = {doc.get("external_id"): doc for doc in original_docs}
@@ -195,7 +201,7 @@ class FilteringAgentService:
             return {}
         
         # 获取最低相关度阈值
-        min_score = filter_config.get("min_relevance_score", 0.6)
+        min_score = float(filter_config.get("min_relevance_score", DEFAULT_MIN_SCORE))
         
         external_id = str(original_doc.get("external_id", ""))
         score = max(0.0, min(1.0, float(data.get("score", 0.5))))  # Clamp to [0, 1]

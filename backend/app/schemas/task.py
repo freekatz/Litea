@@ -50,7 +50,7 @@ class FilterConfig(BaseModel):
     """文献筛选配置"""
     enabled: bool = Field(default=True, description="是否启用AI筛选")
     filter_prompt: Optional[str] = Field(None, description="筛选提示词（可选，使用默认）")
-    min_relevance_score: float = Field(default=0.6, ge=0, le=1, description="最低相关度阈值")
+    min_relevance_score: float = Field(default=0.4, ge=0, le=1, description="最低相关度阈值")
     max_documents_per_source: int = Field(default=50, ge=1, le=200, description="每个来源最多筛选文献数")
     use_abstract_only: bool = Field(default=True, description="仅使用摘要进行筛选")
 

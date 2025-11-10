@@ -8,8 +8,67 @@ from typing import Any, Dict, List, Optional
 from crewai import Agent, Crew, Process, Task
 from loguru import logger
 
-from app.config import get_settings
-from app.services.ai.provider_registry import ProviderRegistry
+from ...config import get_settings
+from .provider_registry import ProviderRegistry
+
+
+_SETTINGS = get_settings()
+_STATIC_PROMPTS = _SETTINGS.static.prompts if _SETTINGS.static else {}
+
+_FALLBACK_FILTER_PROMPT = """请仔细阅读文献的完整信息，特别是摘要部分，然后评估：
+
+1. **相关性判断** (is_selected):
+    - 文献内容是否与研究主题直接相关？
+    - 是否包含所需的关键信息或方法？
+    - 返回 true（相关）或 false（不相关）
+
+2. **相关性评分** (score):
+    - 给出 0-1 之间的相关性评分
+    - 0.8-1.0: 高度相关，核心文献
+    - 0.6-0.8: 中度相关，参考价值
+    - 0.4-0.6: 低度相关，边缘相关
+    - 0.0-0.4: 基本不相关
+
+3. **文献总结** (summary):
+    - 用1-2句话总结文献的核心内容
+    - 说明为什么选择或不选择这篇文献
+
+4. **关键亮点** (highlights):
+    - 列出2-4个关键发现或创新点
+    - 与研究主题最相关的部分"""
+
+_FALLBACK_SUMMARY_PROMPT = """对筛选后的文献进行深度分析和综合总结。
+
+请从以下角度进行分析，所有输出内容均需使用中文表达：
+
+1. **趋势总结** (trend_summary):
+    - 当前研究领域的主要趋势和发展方向
+    - 热点问题和研究焦点
+    - 技术路线和方法论的演进
+    - 2-3个段落，清晰连贯
+
+2. **文献排名** (rankings):
+    - 按重要性和相关性对文献进行排序
+    - 说明每篇文献的核心贡献和推荐理由
+    - 最多10篇
+
+3. **主题分类** (sections):
+    - 按研究主题或方法论对文献进行分组
+    - 每个类别包含相关文献列表和简要描述
+    - 4-6个主题类别
+
+4. **关键洞察** (key_insights):
+    - 从文献中提炼的关键发现和创新点
+    - 值得关注的研究进展
+    - 5-8条核心观点
+
+5. **研究方向建议** (research_directions):
+    - 基于当前文献的未来研究方向建议
+    - 潜在的研究缺口和机会
+    - 3-5个方向"""
+
+DEFAULT_FILTER_PROMPT = _STATIC_PROMPTS.get("filter_default", _FALLBACK_FILTER_PROMPT)
+DEFAULT_SUMMARY_PROMPT = _STATIC_PROMPTS.get("summary_default", _FALLBACK_SUMMARY_PROMPT)
 
 
 class CrewManager:
@@ -117,15 +176,8 @@ class CrewManager:
             if prompt_value:
                 custom_filter_prompt = str(prompt_value).strip()
         
-        # 默认筛选提示词
-        default_filter_prompt = """请为每篇文献评估：
-1. 是否与研究主题相关（is_selected: true/false）
-2. 相关性评分（score: 0-1）
-3. 简短总结（summary: 1-2句话）
-4. 关键亮点（highlights: 列表）"""
-        
-        # 使用自定义提示词或默认提示词
-        evaluation_guide = custom_filter_prompt if custom_filter_prompt else default_filter_prompt
+                # 使用自定义提示词或默认提示词
+                evaluation_guide = custom_filter_prompt if custom_filter_prompt else DEFAULT_FILTER_PROMPT
         
         filter_task = Task(
             description=f"""
@@ -211,34 +263,9 @@ class CrewManager:
             prompt_value = filter_config.get("filter_prompt")
             if prompt_value:
                 custom_filter_prompt = str(prompt_value).strip()
-        
-        # 默认筛选提示词
-        default_filter_prompt = """请仔细阅读上述文献的完整信息，特别是摘要部分，然后评估：
 
-**重要：请使用中文回答所有内容**
-
-1. **相关性判断** (is_selected): 
-   - 文献内容是否与研究主题直接相关？
-   - 是否包含所需的关键信息或方法？
-   - 返回 true（相关）或 false（不相关）
-
-2. **相关性评分** (score): 
-   - 给出 0-1 之间的相关性评分
-   - 0.8-1.0: 高度相关，核心文献
-   - 0.6-0.8: 中度相关，参考价值
-   - 0.4-0.6: 低度相关，边缘相关
-   - 0.0-0.4: 基本不相关
-
-3. **文献总结** (summary): 
-   - 用1-2句中文总结文献的核心内容
-   - 说明为什么选择或不选择这篇文献
-
-4. **关键亮点** (highlights): 
-   - 用中文列出2-4个关键发现或创新点
-   - 与研究主题最相关的部分"""
-        
         # 使用自定义提示词或默认提示词
-        evaluation_guide = custom_filter_prompt if custom_filter_prompt else default_filter_prompt
+        evaluation_guide = custom_filter_prompt if custom_filter_prompt else DEFAULT_FILTER_PROMPT
         
         filter_task = Task(
             description=f"""
@@ -319,40 +346,9 @@ class CrewManager:
             prompt_value = summary_config.get("summary_prompt")
             if prompt_value:
                 custom_summary_prompt = str(prompt_value).strip()
-        
-        # 默认总结提示词
-        default_summary_prompt = """请从以下角度进行分析：
 
-**重要：请使用中文回答所有内容**
-
-1. **趋势总结** (trend_summary): 
-   - 用中文描述当前研究领域的主要趋势和发展方向
-   - 热点问题和研究焦点
-   - 技术路线和方法论的演进
-   - 2-3个段落，清晰连贯
-
-2. **文献排名** (rankings):
-   - 按重要性和相关性对文献进行排序
-   - 用中文说明每篇文献的核心贡献和推荐理由
-   - 最多10篇
-
-3. **主题分类** (sections):
-   - 按研究主题或方法论对文献进行分组
-   - 每个类别包含相关文献列表和中文描述
-   - 4-6个主题类别
-
-4. **关键洞察** (key_insights):
-   - 用中文从文献中提炼的关键发现和创新点
-   - 值得关注的研究进展
-   - 5-8条核心观点
-
-5. **研究方向建议** (research_directions):
-   - 用中文基于当前文献提出未来研究方向建议
-   - 潜在的研究缺口和机会
-   - 3-5个方向"""
-        
         # 使用自定义提示词或默认提示词
-        analysis_guide = custom_summary_prompt if custom_summary_prompt else default_summary_prompt
+        analysis_guide = custom_summary_prompt if custom_summary_prompt else DEFAULT_SUMMARY_PROMPT
         
         # Base task description
         task_desc = f"""

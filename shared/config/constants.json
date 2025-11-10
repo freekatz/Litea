@@ -1,0 +1,37 @@
+{
+  "task_statuses": [
+    { "value": "active", "label": "运行中" },
+    { "value": "inactive", "label": "未运行" },
+    { "value": "archived", "label": "已归档" }
+  ],
+  "notification_channels": [
+  { "value": "email", "label": "邮件推送", "icon": "mail" },
+  { "value": "feishu", "label": "飞书机器人", "icon": "bell" }
+  ],
+  "document_sort_options": [
+    { "value": "date", "label": "时间排序" },
+    { "value": "score", "label": "相关度排序" },
+    { "value": "title", "label": "标题排序" }
+  ],
+  "summary_display_modes": [
+    { "value": "grouped", "label": "按来源分组" },
+    { "value": "ranked", "label": "按排名展示" }
+  ],
+  "ai_providers": [
+    { "value": "deepseek", "label": "DeepSeek" },
+    { "value": "openai", "label": "OpenAI" },
+    { "value": "doubao", "label": "豆包" },
+    { "value": "qwen", "label": "通义千问" }
+  ],
+  "retrieval_sources": [
+    { "value": "arxiv", "label": "arXiv" }
+  ],
+  "prompts": {
+    "filter_default": "请仔细阅读文献的完整信息，特别是摘要部分，然后评估（使用中文）：\n\n1. **相关性判断** (is_selected):\n   - 文献内容是否与研究主题直接相关？\n   - 是否包含所需的关键信息或方法？\n   - 返回 true（相关）或 false（不相关）\n\n2. **相关性评分** (score):\n   - 给出 0-1 之间的相关性评分\n   - 0.8-1.0: 高度相关，核心文献\n   - 0.6-0.8: 中度相关，参考价值\n   - 0.4-0.6: 低度相关，边缘相关\n   - 0.0-0.4: 基本不相关\n\n3. **文献总结** (summary):\n   - 用1-2句话总结文献的核心内容\n   - 说明对研究主题有参考价值的部分\n\n4. **关键亮点** (highlights):\n   - 列出2-4个关键发现或创新点",
+    "summary_default": "对筛选后的文献进行深度分析和综合总结。\n\n请从以下角度进行分析（使用中文）：\n\n1. **趋势总结** (trend_summary):\n   - 当前研究领域的主要趋势和发展方向\n   - 热点问题和研究焦点\n   - 技术路线和方法论的演进\n   - 2-3个段落，清晰连贯\n\n2. **文献排名** (rankings):\n   - 按重要性和相关性对文献进行排序\n   - 说明每篇文献的核心贡献和推荐理由\n   - 最多10篇\n\n3. **主题分类** (sections):\n   - 按研究主题或方法论对文献进行分组\n   - 每个类别包含相关文献列表和简要描述\n   - 4-6个主题类别\n\n4. **关键洞察** (key_insights):\n   - 从文献中提炼的关键发现和创新点\n   - 值得关注的研究进展\n   - 5-8条核心观点\n\n5. **研究方向建议** (research_directions):\n   - 基于当前文献的未来研究方向建议\n   - 潜在的研究缺口和机会\n   - 3-5个方向"
+  },
+  "filter_defaults": {
+    "min_relevance_score": 0.4,
+    "max_documents_per_source": 50
+  }
+}

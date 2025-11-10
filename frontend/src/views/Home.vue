@@ -187,9 +187,13 @@
           </option>
         </select>
         <select v-model="sortBy" class="filter-select">
-          <option value="date">时间排序</option>
-          <option value="score">相关度排序</option>
-          <option value="title">标题排序</option>
+          <option
+            v-for="option in documentSortOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
         </select>
       </div>
 
@@ -404,6 +408,7 @@ import axios from 'axios'
 import { tasksApi } from '@/api/tasks'
 import { documentsApi } from '@/api/documents'
 import { analyticsApi } from '@/api/analytics'
+import { documentSortOptions } from '@/config/static'
 import TaskForm from '@/components/tasks/TaskForm.vue'
 import DocumentCharts from '@/components/documents/DocumentCharts.vue'
 
@@ -433,7 +438,7 @@ interface Document {
   authors?: string | string[]
   abstract?: string
   keywords?: string[]
-  source?: string  // 前端使用
+  source: string  // 前端使用
   source_name?: string  // 后端返回
   relevance_score?: number  // 前端使用
   rank_score?: number  // 后端返回
@@ -463,7 +468,7 @@ const showTaskModal = ref(false)
 const editingTask = ref<Task | null>(null)
 const searchQuery = ref('')
 const sourceFilter = ref('')
-const sortBy = ref('date')
+const sortBy = ref(documentSortOptions[0]?.value ?? 'date')
 const showArchived = ref(false)
 const showActiveGroup = ref(true)
 const showInactiveGroup = ref(true)
@@ -795,14 +800,15 @@ async function loadDocuments() {
         offset: (currentPage.value - 1) * pageSize.value
       })
     }
-    documents.value = response.data?.items || []
-    console.log('原始文档数据:', documents.value.length, documents.value[0])
+    const rawDocs = response.data?.items || []
+    console.log('原始文档数据:', rawDocs.length, rawDocs[0])
     // 映射后端字段到前端字段
-    documents.value = documents.value.map((doc: any) => ({
+    const normalizedDocs: Document[] = rawDocs.map((doc: any) => ({
       ...doc,
       source: doc.source_name || doc.source || '未知',
       relevance_score: doc.rank_score !== undefined ? doc.rank_score : doc.relevance_score
     }))
+    documents.value = normalizedDocs
     console.log('映射后文档数据:', documents.value[0])
     totalDocuments.value = response.data?.total || 0
   } catch (error) {

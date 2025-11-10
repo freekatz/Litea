@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_STATIC_CONFIG_PATH = PROJECT_ROOT / "shared" / "config" / "constants.json"
 
 
 class DatabaseSettings(BaseModel):
@@ -82,6 +87,32 @@ class AuthSettings(BaseModel):
     jwt_expire_days: int = 30
 
 
+class StaticConfig(BaseModel):
+    """Static constants shared across services."""
+
+    task_statuses: List[Dict[str, str]] = Field(default_factory=list)
+    notification_channels: List[Dict[str, str]] = Field(default_factory=list)
+    document_sort_options: List[Dict[str, str]] = Field(default_factory=list)
+    summary_display_modes: List[Dict[str, str]] = Field(default_factory=list)
+    ai_providers: List[Dict[str, str]] = Field(default_factory=list)
+    retrieval_sources: List[Dict[str, str]] = Field(default_factory=list)
+    prompts: Dict[str, str] = Field(default_factory=dict)
+    filter_defaults: Dict[str, Any] = Field(default_factory=dict)
+
+
+def load_static_config(path: Path = DEFAULT_STATIC_CONFIG_PATH) -> StaticConfig:
+    """Load shared static configuration from JSON."""
+
+    if not path.exists():
+        return StaticConfig()
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return StaticConfig(**data)
+    except Exception:  # pragma: no cover - fallback to defaults
+        return StaticConfig()
+
+
 class LiteaSettings(BaseSettings):
     """Top-level application settings."""
 
@@ -96,6 +127,7 @@ class LiteaSettings(BaseSettings):
     zotero: ZoteroSettings = Field(default_factory=ZoteroSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    static: StaticConfig = Field(default_factory=load_static_config)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -107,5 +139,5 @@ class LiteaSettings(BaseSettings):
 @lru_cache
 def get_settings() -> LiteaSettings:
     """Load settings once."""
-
-    return LiteaSettings(_env_file=Path(__file__).resolve().parent.parent / ".env")
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    return LiteaSettings(_env_file=env_path)

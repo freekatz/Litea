@@ -12,32 +12,23 @@ from app.db import models
 from app.db.repositories import DocumentRepository, TaskRepository
 from app.services.ai.filtering_agent import FilteringAgentService
 from app.services.ai.keyword_extraction_service import KeywordExtractionService
-from app.services.ai.summarization_agent import SummarizationAgentService
-from app.services.notifications.registry import NotificationRegistry
 from app.services.retrieval.registry import RetrievalRegistry
-from app.services.zotero.client import ZoteroClient
 from app.services.mcp import mcp_server, EmailTool, FeishuTool
 
 
 class TaskRunner:
-    """Coordinates retrieval, filtering, summarization, persistence and notifications."""
+    """Coordinates retrieval, filtering, persistence and notifications."""
 
     def __init__(
         self,
         retrieval_registry: RetrievalRegistry | None = None,
         keyword_service: KeywordExtractionService | None = None,
         filtering_service: FilteringAgentService | None = None,
-        summarization_service: SummarizationAgentService | None = None,
-        notification_registry: NotificationRegistry | None = None,
-        zotero_client: ZoteroClient | None = None,
     ) -> None:
         self._retrieval = retrieval_registry or RetrievalRegistry()
         self._keywords = keyword_service or KeywordExtractionService()
         self._filtering = filtering_service or FilteringAgentService()
-        self._summaries = summarization_service or SummarizationAgentService()
-        self._notifications = notification_registry or NotificationRegistry()
-        self._zotero = zotero_client or ZoteroClient()
-        
+
         # Initialize MCP tools
         self._init_mcp_tools()
 
@@ -88,23 +79,11 @@ class TaskRunner:
             selected_count = sum(len(items) for items in selected_docs.values())
             logger.info(f"Task {task.id}: {selected_count} documents selected out of {run.filtered_count} total for notifications")
             
-            # Generate summary and send notifications using only selected documents
-            all_selected_docs = []
-            for docs in selected_docs.values():
-                all_selected_docs.extend(docs)
-            
-            summary_payload = {
-                "task_id": task.id,
-                "task_name": task.name,
-                "prompt": task.prompt,
-                "keywords": keywords,
-                "documents": all_selected_docs[:50],  # 使用默认值：最多50个被选中的文档
-            }
-            run.summary = summary_payload.get("trend_summary", "")
-            
+            run.summary = f"{selected_count} documents selected out of {run.filtered_count}"
+
             # Send notifications (non-critical operation) - 只通知被选中的文档
             try:
-                await self._send_notifications(task, selected_docs, summary_payload)
+                await self._send_notifications(task, selected_docs)
             except Exception as exc:
                 logger.error("Failed to send notifications for task {}: {}", task.id, exc)
                 run.run_metadata["notification_error"] = str(exc)
@@ -276,30 +255,10 @@ class TaskRunner:
         logger.info("Persisted documents: {} created, {} updated, {} selected as relevant", 
                    created_count, updated_count, selected_count)
 
-    async def _generate_summary(
-        self,
-        task: models.Task,
-        filtered_docs: Dict[str, List[Dict[str, Any]]],
-    ) -> Dict[str, Any]:
-        documents = [doc for docs in filtered_docs.values() for doc in docs]
-        if not documents:
-            return {
-                "trend_summary": "本次检索未筛选到符合条件的文献。",
-                "rankings": [],
-                "sections": [],
-            }
-        context = {
-            "prompt": task.prompt,
-            "summary_config": task.summary_config,
-            "ai_config": task.ai_config,
-        }
-        return await self._summaries.summarize(context, documents)
-
     async def _send_notifications(
         self,
         task: models.Task,
         filtered_docs: Dict[str, List[Dict[str, Any]]],
-        summary: Dict[str, Any],
     ) -> None:
         """Send notifications using MCP tools."""
         # Get notification config
@@ -338,7 +297,7 @@ class TaskRunner:
             try:
                 if channel == "email":
                     await self._send_email_notification(
-                        task, all_docs, summary, notification_config
+                        task, all_docs, notification_config
                     )
                 elif channel == "feishu":
                     await self._send_feishu_notification(
@@ -354,7 +313,6 @@ class TaskRunner:
         self,
         task: models.Task,
         documents: List[Dict[str, Any]],
-        summary: Dict[str, Any],
         config: Dict[str, Any],
     ) -> None:
         """Send email notification via MCP."""
@@ -442,30 +400,6 @@ class TaskRunner:
             logger.error(f"Error sending Feishu notification: {str(e)}")
             logger.exception(f"Full exception:")
 
-    def _build_email_html(
-        self,
-        task: models.Task,
-        filtered_docs: Dict[str, List[Dict[str, Any]]],
-        summary: Dict[str, Any],
-    ) -> str:
-        """Legacy method, kept for compatibility."""
-        sections = []
-        sections.append(f"<h2>{task.name}</h2>")
-        if summary.get("trend_summary"):
-            sections.append(f"<p>{summary['trend_summary']}</p>")
-        for source_name, docs in filtered_docs.items():
-            sections.append(f"<h3>来源：{source_name}</h3>")
-            sections.append("<ul>")
-            for doc in docs[:5]:  # 使用默认值：每个来源最多5个文档
-                sections.append(
-                    "<li>"
-                    f"<strong>{doc.get('title', 'Untitled')}</strong><br/>"
-                    f"评分：{doc.get('score', 0):.2f}"
-                    "</li>"
-                )
-            sections.append("</ul>")
-        return "\n".join(sections)
-    
     def _init_mcp_tools(self) -> None:
         """Initialize and register MCP tools."""
         # Register email tool

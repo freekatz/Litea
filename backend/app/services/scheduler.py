@@ -13,8 +13,6 @@ import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.models import Task, TaskRun
 from app.services.tasks.task_runner import TaskRunner
 
@@ -177,8 +175,8 @@ class TaskScheduler:
                 await session.commit()
                 
                 # Execute task
-                runner = TaskRunner(task, session)
-                await runner.run_with_existing_run(task_run)
+                runner = TaskRunner()
+                await runner.run_with_existing_run(session, task, task_run)
                 
                 logger.info(f"Completed scheduled execution of task {task_id}")
                 
