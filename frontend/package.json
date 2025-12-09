@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview",
+    "serve": "vite preview --port 80 --host",
+    "deploy": "npm run build:prod && npm run serve"
   },
   "dependencies": {
     "@vueuse/core": "^10.7.0",

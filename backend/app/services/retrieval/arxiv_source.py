@@ -10,21 +10,18 @@ from typing import Any, Dict, List, Optional
 import httpx
 from loguru import logger
 
-try:
-    from pypaperbot.arxiv import Arxiv  # type: ignore[import]
-except ImportError:  # pragma: no cover
-    Arxiv = None  # type: ignore
+import arxiv
 
 from app.services.zotero.client import ZoteroClient
 
 
 class ArxivRetrievalSource:
-    """ArXiv source with PyPaperBot support and HTTP API fallback."""
+    """ArXiv source with arxiv library support and HTTP API fallback."""
 
     name = "arxiv"
 
     def __init__(self) -> None:
-        self._client = Arxiv() if Arxiv is not None else None
+        self._client = arxiv.Client() if arxiv is not None else None
         self._zotero_client = ZoteroClient()
 
     async def search(self, prompt: str, keywords: List[str], parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -32,19 +29,63 @@ class ArxivRetrievalSource:
         max_results = int(parameters.get("max_results", 50))
         logger.info("Searching arXiv with query='{}', max_results={}", query, max_results)
 
-        if self._client is not None:
+        if self._client is not None and arxiv is not None:
+            # Map sort parameters to arxiv library enums
+            sort_by_str = parameters.get("sort_by", "submittedDate")
+            sort_order_str = parameters.get("sort_order", "descending")
+            
+            sort_by_map = {
+                "submittedDate": arxiv.SortCriterion.SubmittedDate,
+                "lastUpdatedDate": arxiv.SortCriterion.LastUpdatedDate,
+                "relevance": arxiv.SortCriterion.Relevance,
+            }
+            sort_order_map = {
+                "descending": arxiv.SortOrder.Descending,
+                "ascending": arxiv.SortOrder.Ascending,
+            }
+            
+            sort_by = sort_by_map.get(sort_by_str, arxiv.SortCriterion.SubmittedDate)
+            sort_order = sort_order_map.get(sort_order_str, arxiv.SortOrder.Descending)
+            
+            search = arxiv.Search(
+                query=query,
+                max_results=max_results,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+            
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
                 None,
-                lambda: self._client.search(
-                    query,
-                    max_results=max_results,
-                    sort_by=parameters.get("sort_by", "submittedDate"),
-                    sort_order=parameters.get("sort_order", "descending"),
-                ),
+                lambda: list(self._client.results(search)),
             )
+            
+            documents: List[Dict[str, Any]] = []
+            for item in results:
+                published_at: Optional[datetime] = item.published if item.published else None
+                documents.append(
+                    {
+                        "external_id": item.entry_id,
+                        "title": item.title,
+                        "abstract": item.summary,
+                        "authors": [author.name for author in item.authors],
+                        "url": item.entry_id,
+                        "published_at": published_at,
+                        "source": self.name,
+                        "extra": {
+                            "pdf_url": item.pdf_url,
+                            "primary_category": item.primary_category,
+                            "categories": item.categories,
+                            "comment": item.comment,
+                            "journal_ref": item.journal_ref,
+                            "doi": item.doi,
+                            "updated": item.updated.isoformat() if item.updated else None,
+                        },
+                    }
+                )
+            return documents
         else:
-            logger.warning("PyPaperBot unavailable, using arXiv HTTP API")
+            logger.warning("arxiv library unavailable, using arXiv HTTP API")
             results = await self._search_via_http(
                 query=query,
                 max_results=max_results,
@@ -52,28 +93,28 @@ class ArxivRetrievalSource:
                 sort_order=parameters.get("sort_order", "descending"),
             )
 
-        documents: List[Dict[str, Any]] = []
-        for item in results:
-            published_at: Optional[datetime] = None
-            raw_published = item.get("published")
-            if raw_published:
-                try:
-                    published_at = datetime.fromisoformat(str(raw_published).replace("Z", "+00:00"))
-                except ValueError:
-                    published_at = None
-            documents.append(
-                {
-                    "external_id": item.get("id", ""),
-                    "title": item.get("title", ""),
-                    "abstract": item.get("summary", ""),
-                    "authors": item.get("authors", []),
-                    "url": item.get("link", ""),
-                    "published_at": published_at,
-                    "source": self.name,
-                    "extra": {k: v for k, v in item.items() if k not in {"id", "title", "summary", "authors", "link", "published"}},
-                }
-            )
-        return documents
+            documents: List[Dict[str, Any]] = []
+            for item in results:
+                published_at: Optional[datetime] = None
+                raw_published = item.get("published")
+                if raw_published:
+                    try:
+                        published_at = datetime.fromisoformat(str(raw_published).replace("Z", "+00:00"))
+                    except ValueError:
+                        published_at = None
+                documents.append(
+                    {
+                        "external_id": item.get("id", ""),
+                        "title": item.get("title", ""),
+                        "abstract": item.get("summary", ""),
+                        "authors": item.get("authors", []),
+                        "url": item.get("link", ""),
+                        "published_at": published_at,
+                        "source": self.name,
+                        "extra": {k: v for k, v in item.items() if k not in {"id", "title", "summary", "authors", "link", "published"}},
+                    }
+                )
+            return documents
 
     async def _search_via_http(
         self,

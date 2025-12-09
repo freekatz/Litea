@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosInstance } from 'axios'
 
+const TOKEN_KEY = 'litea_auth_token'
+
 const api: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -11,7 +13,11 @@ const api: AxiosInstance = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Can add auth tokens here if needed
+    // Add auth token to every request
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {

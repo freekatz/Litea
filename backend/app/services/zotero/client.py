@@ -6,10 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-try:
-    from pyzotero import zotero  # type: ignore[import]
-except ImportError:  # pragma: no cover
-    zotero = None  # type: ignore
+from pyzotero import zotero
 
 from app.config import get_settings
 

@@ -47,6 +47,7 @@ class TaskRunner:
         logger.info("Started task '{}' run {}", task.name, run.id)
         try:
             keywords = await self._get_keywords(task)
+            logger.info("Task {} keywords: {}", task.id, keywords)
             run.run_metadata["keywords"] = keywords
             
             # Retrieve documents (continue even if some sources fail)

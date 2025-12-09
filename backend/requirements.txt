@@ -1,0 +1,37 @@
+# Web Framework
+fastapi
+uvicorn
+python-multipart
+
+# Database
+sqlalchemy
+aiosqlite
+
+# AI/LLM
+crewai==1.7.0
+langchain
+langchain-openai
+
+# HTTP & Async
+httpx==0.28.1
+aiohttp==3.12.12
+aiohttp_cors
+
+# Data Processing
+pydantic==2.11.9
+pydantic-settings==2.10.1
+
+# Scheduling
+apscheduler
+
+# arXiv & Papers
+feedparser==6.0.12
+
+# Email
+aiosmtplib==5.0.0
+
+# Utilities
+python-dateutil==2.9.0.post0
+
+PyPaperBot==1.4.1
+pyzotero==1.7.3

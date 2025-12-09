@@ -404,15 +404,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
 import { tasksApi } from '@/api/tasks'
 import { documentsApi } from '@/api/documents'
 import { analyticsApi } from '@/api/analytics'
 import { documentSortOptions } from '@/config/static'
 import TaskForm from '@/components/tasks/TaskForm.vue'
 import DocumentCharts from '@/components/documents/DocumentCharts.vue'
-
-const API_BASE_URL = 'http://localhost:6060'
+import api from '@/api/client'
 
 interface Task {
   id: number
@@ -697,13 +695,8 @@ async function handleBatchDelete() {
   }
 
   try {
-    const token = localStorage.getItem('litea_auth_token')
-    const response = await axios.post(`${API_BASE_URL}/api/documents/batch/delete`, {
+    const response = await api.post('/documents/batch/delete', {
       document_ids: Array.from(selectedDocIds.value)
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
     })
     
     if (response.data.success) {
@@ -731,14 +724,9 @@ async function handleBatchExport() {
   }
 
   try {
-    const token = localStorage.getItem('litea_auth_token')
-    const response = await axios.post(`${API_BASE_URL}/api/documents/export/zotero`, {
+    const response = await api.post('/documents/export/zotero', {
       document_ids: Array.from(selectedDocIds.value),
       collection_name: exportCollectionName.value
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
     })
     
     if (response.data.data) {
@@ -801,7 +789,6 @@ async function loadDocuments() {
       })
     }
     const rawDocs = response.data?.items || []
-    console.log('原始文档数据:', rawDocs.length, rawDocs[0])
     // 映射后端字段到前端字段
     const normalizedDocs: Document[] = rawDocs.map((doc: any) => ({
       ...doc,
@@ -809,7 +796,6 @@ async function loadDocuments() {
       relevance_score: doc.rank_score !== undefined ? doc.rank_score : doc.relevance_score
     }))
     documents.value = normalizedDocs
-    console.log('映射后文档数据:', documents.value[0])
     totalDocuments.value = response.data?.total || 0
   } catch (error) {
     console.error('Failed to load documents:', error)
@@ -857,6 +843,8 @@ async function handleEditTask(task: Task) {
 async function handleCopyTask(task: Task) {
   // 创建任务的副本 - 复制所有配置字段，不包含id等元数据
   // 这样TaskForm会将其当作新任务创建
+  // 注意：后端返回的通知配置字段名是 notification，不是 notification_config
+  const notificationData = (task as any).notification || task.notification_config
   const taskCopy: any = {
     name: `${task.name} (副本)`,
     prompt: task.prompt,
@@ -864,7 +852,7 @@ async function handleCopyTask(task: Task) {
     data_sources: task.data_sources || [],
     run_at_hour: task.run_at_hour,
     run_at_minute: task.run_at_minute || 0,
-    notification_config: task.notification_config || {},
+    notification_config: notificationData ? { ...notificationData } : {},
   }
   
   // 复制AI配置（如果存在）
