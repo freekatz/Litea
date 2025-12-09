@@ -14,7 +14,7 @@ langchain-openai
 
 # HTTP & Async
 httpx==0.28.1
-aiohttp==3.12.12
+aiohttp==3.12.14
 aiohttp_cors
 
 # Data Processing
