@@ -73,6 +73,9 @@
               </span>
               <button type="button" @click="removeKeyword(idx)" class="chip-remove">×</button>
             </div>
+            <button type="button" @click="clearAllKeywords" class="btn-clear-all" title="清空全部关键词">
+              🗑️ 清空
+            </button>
           </div>
         </div>
 
@@ -473,6 +476,12 @@ function removeKeyword(index: number) {
   form.value.keywords.splice(index, 1)
 }
 
+function clearAllKeywords() {
+  if (form.value.keywords.length > 0 && confirm('确定要清空全部关键词吗？')) {
+    form.value.keywords = []
+  }
+}
+
 function startEditKeyword(index: number, keyword: string) {
   editingKeywordIndex.value = index
   editingKeywordValue.value = keyword
@@ -871,6 +880,27 @@ onMounted(() => {
 
 .btn-add:hover {
   background: #f9fafb;
+}
+
+.keyword-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-clear-all {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-clear-all:hover {
+  background: #fee2e2;
 }
 
 .keyword-list {

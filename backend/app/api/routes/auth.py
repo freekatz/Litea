@@ -78,12 +78,19 @@ async def verify(request: web.Request) -> web.Response:
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
     """Authentication middleware."""
+    from app.config import get_settings
+    settings = get_settings()
+    
+    # Skip auth if disabled in config
+    if not settings.auth.enabled:
+        return await handler(request)
+    
     # Skip auth for OPTIONS requests (CORS preflight)
     if request.method == "OPTIONS":
         return await handler(request)
     
     # Skip auth for login and static files
-    if request.path in ["/api/auth/login", "/api/auth/verify"] or not request.path.startswith("/api/"):
+    if request.path in ["/api/auth/login", "/api/auth/verify", "/api/auth/status"] or not request.path.startswith("/api/"):
         return await handler(request)
     
     # Check authorization header
@@ -103,7 +110,16 @@ async def auth_middleware(request: web.Request, handler):
     return await handler(request)
 
 
+async def get_auth_status(request: web.Request) -> web.Response:
+    """Get authentication status (whether auth is enabled)."""
+    settings = get_settings()
+    return web.json_response({
+        "auth_enabled": settings.auth.enabled
+    })
+
+
 def setup_routes(app: web.Application):
     """Setup auth routes."""
     app.router.add_post("/api/auth/login", login)
     app.router.add_get("/api/auth/verify", verify)
+    app.router.add_get("/api/auth/status", get_auth_status)

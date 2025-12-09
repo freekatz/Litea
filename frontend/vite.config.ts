@@ -15,7 +15,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 80,
     host: true,
     allowedHosts: ['localhost', 'litea.1uvu.com'],
     fs: {
@@ -30,7 +30,7 @@ export default defineConfig({
   },
   // 生产预览服务器配置
   preview: {
-    port: 3000,
+    port: 80,
     host: true,
     allowedHosts: ['localhost', 'litea.1uvu.com'],
     proxy: {

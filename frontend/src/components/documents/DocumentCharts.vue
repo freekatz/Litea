@@ -6,19 +6,19 @@
       <div class="chart-content stats-grid">
         <div class="stat-item">
           <div class="stat-label">总文献数</div>
-          <div class="stat-value">{{ totalCount }}</div>
+          <div class="stat-value">{{ overviewData.totalDocuments }}</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">数据来源</div>
-          <div class="stat-value">{{ sourceCount }}</div>
+          <div class="stat-value">{{ sourceStats.length }}</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">平均相关度</div>
-          <div class="stat-value">{{ avgScore }}%</div>
+          <div class="stat-value">{{ overviewData.avgScore }}%</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">本周新增</div>
-          <div class="stat-value">{{ weekCount }}</div>
+          <div class="stat-value">{{ overviewData.weekCount }}</div>
         </div>
       </div>
     </div>
@@ -95,126 +95,114 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
-interface Document {
-  id: number
-  title: string
-  source: string
-  relevance_score?: number
-  created_at: string
-}
+import { ref, computed, watch, onMounted } from 'vue'
+import { analyticsApi } from '@/api/analytics'
 
 interface Props {
-  documents: Document[]
+  taskId?: number | null
 }
 
 const props = defineProps<Props>()
 
-// 来源统计
-const sourceStats = computed(() => {
-  const stats = new Map<string, number>()
-  props.documents.forEach(doc => {
-    stats.set(doc.source, (stats.get(doc.source) || 0) + 1)
-  })
-  return Array.from(stats.entries())
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count)
+// 后端返回的数据
+const overviewData = ref({
+  totalDocuments: 0,
+  weekCount: 0,
+  avgScore: 0
 })
+
+const sourceStats = ref<Array<{ source: string; count: number }>>([])
+const timeStats = ref<Array<{ date: string; label: string; count: number }>>([])
+const scoreStats = ref<Array<{ range: string; count: number }>>([])
 
 const maxCount = computed(() => {
   return Math.max(...sourceStats.value.map(s => s.count), 1)
-})
-
-// 时间趋势（最近7天）
-const timeStats = computed(() => {
-  const now = new Date()
-  const stats = new Map<string, number>()
-  
-  // 初始化最近7天
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
-    stats.set(dateStr, 0)
-  }
-  
-  // 统计文献
-  props.documents.forEach(doc => {
-    if (doc.created_at) {
-      try {
-        const dateStr = doc.created_at.split('T')[0]
-        if (stats.has(dateStr)) {
-          stats.set(dateStr, (stats.get(dateStr) || 0) + 1)
-        }
-      } catch (error) {
-        console.error('解析日期失败:', doc.created_at, error)
-      }
-    }
-  })
-  
-  return Array.from(stats.entries())
-    .map(([date, count]) => ({
-      date,
-      label: new Date(date).getMonth() + 1 + '/' + new Date(date).getDate(),
-      count
-    }))
 })
 
 const maxTimeCount = computed(() => {
   return Math.max(...timeStats.value.map(s => s.count), 1)
 })
 
-// 相关度分布
-const scoreStats = computed(() => {
-  const ranges = [
-    { range: '90-100%', min: 0.9, max: 1.0, count: 0 },
-    { range: '80-90%', min: 0.8, max: 0.9, count: 0 },
-    { range: '70-80%', min: 0.7, max: 0.8, count: 0 },
-    { range: '60-70%', min: 0.6, max: 0.7, count: 0 },
-    { range: '<60%', min: 0, max: 0.6, count: 0 }
-  ]
-  
-  props.documents.forEach(doc => {
-    if (doc.relevance_score) {
-      const range = ranges.find(r => doc.relevance_score! >= r.min && doc.relevance_score! < r.max)
-      if (range) range.count++
-    }
-  })
-  
-  return ranges.filter(r => r.count > 0)
-})
-
 const maxScoreCount = computed(() => {
   return Math.max(...scoreStats.value.map(s => s.count), 1)
 })
 
-// 统计概览
-const totalCount = computed(() => props.documents.length)
+async function loadStats() {
+  try {
+    const taskId = props.taskId ?? undefined
+    
+    console.log('=== DocumentCharts loadStats ===')
+    console.log('taskId:', taskId)
+    
+    // 并行加载所有统计数据
+    const [overviewRes, sourcesRes, trendsRes, scoresRes] = await Promise.all([
+      analyticsApi.getOverview(taskId),
+      analyticsApi.getSources(taskId),
+      analyticsApi.getTrends(7, taskId),
+      analyticsApi.getScores(taskId)
+    ])
+    
+    console.log('overviewRes:', JSON.stringify(overviewRes, null, 2))
+    console.log('sourcesRes:', JSON.stringify(sourcesRes, null, 2))
+    
+    // 处理概览数据
+    if (overviewRes?.data) {
+      overviewData.value = {
+        totalDocuments: overviewRes.data.total_documents || 0,
+        weekCount: overviewRes.data.documents_this_week || 0,
+        avgScore: Math.round(overviewRes.data.avg_citations || 0)
+      }
+      console.log('overviewData set to:', overviewData.value)
+    } else {
+      console.log('overviewRes.data is null/undefined')
+    }
+    
+    // 处理来源分布
+    if (sourcesRes?.data?.sources) {
+      sourceStats.value = sourcesRes.data.sources
+    }
+    
+    // 处理时间趋势 - 补全最近7天
+    const trendsMap = new Map<string, number>()
+    const now = new Date()
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      trendsMap.set(dateStr, 0)
+    }
+    
+    if (trendsRes?.data?.trends) {
+      for (const item of trendsRes.data.trends) {
+        if (trendsMap.has(item.date)) {
+          trendsMap.set(item.date, item.count)
+        }
+      }
+    }
+    
+    timeStats.value = Array.from(trendsMap.entries()).map(([date, count]) => ({
+      date,
+      label: new Date(date).getMonth() + 1 + '/' + new Date(date).getDate(),
+      count
+    }))
+    
+    // 处理相关度分布
+    if (scoresRes?.data) {
+      overviewData.value.avgScore = Math.round(scoresRes.data.avg_score || 0)
+      scoreStats.value = scoresRes.data.distribution || []
+    }
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  }
+}
 
-const sourceCount = computed(() => {
-  return new Set(props.documents.map(d => d.source)).size
+// 监听任务变化，重新加载数据
+watch(() => props.taskId, () => {
+  loadStats()
 })
 
-const avgScore = computed(() => {
-  const scores = props.documents
-    .map(d => d.relevance_score)
-    .filter(s => s !== undefined && s !== null) as number[]
-  console.log('计算平均分数:', {
-    totalDocs: props.documents.length,
-    validScores: scores.length,
-    scores: scores,
-    firstDoc: props.documents[0]
-  })
-  if (scores.length === 0) return 0
-  const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length
-  return Math.round(avg * 100)
-})
-
-const weekCount = computed(() => {
-  const weekAgo = new Date()
-  weekAgo.setDate(weekAgo.getDate() - 7)
-  return props.documents.filter(d => new Date(d.created_at) >= weekAgo).length
+onMounted(() => {
+  loadStats()
 })
 </script>
 

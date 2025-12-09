@@ -23,13 +23,15 @@ router.beforeEach(async (to, from, next) => {
   document.title = `${to.meta.title || 'Litea'} - Litea`
   
   const requiresAuth = to.meta.requiresAuth !== false
-  const isAuthenticated = authService.isAuthenticated()
   
-  if (requiresAuth && !isAuthenticated) {
+  // Check if authentication is enabled and user needs to login
+  const needsLogin = await authService.needsLogin()
+  
+  if (requiresAuth && needsLogin) {
     // 需要认证但未登录，跳转到登录页
     next('/login')
-  } else if (to.path === '/login' && isAuthenticated) {
-    // 已登录用户访问登录页，跳转到首页
+  } else if (to.path === '/login' && !needsLogin) {
+    // 已登录或认证禁用时访问登录页，跳转到首页
     next('/')
   } else {
     next()

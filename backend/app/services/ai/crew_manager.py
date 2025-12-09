@@ -310,6 +310,147 @@ class CrewManager:
         )
         return crew
 
+    def build_coarse_filtering_crew(self, context: Dict[str, Any], documents: List[Dict[str, Any]]) -> Crew:
+        """Build crew for coarse filtering - quick screening based on titles."""
+        settings = get_settings()
+        
+        ai_config = context.get("ai_config") or {}
+        filter_model = ai_config.get("model") if ai_config.get("model") else settings.ai.filter_model
+        
+        analyst = self._build_agent(
+            name="coarse-filter-analyst",
+            role="文献快速筛选专家",
+            goal="根据标题和简短摘要快速判断文献是否可能与研究主题相关",
+            backstory="你擅长快速浏览大量文献，根据标题和关键信息快速判断文献是否值得深入阅读。对于不确定的文献，倾向于保留。",
+            model_override=filter_model,
+        )
+        
+        # Build compact document list (titles + short abstract)
+        docs_text = "\n".join([
+            f"[{i+1}] ID: {doc.get('external_id', '')}\n标题: {doc.get('title', '无标题')}\n摘要: {doc.get('abstract', '')[:150]}..."
+            for i, doc in enumerate(documents)
+        ])
+        
+        prompt = context.get("prompt", "")
+        keywords = ", ".join(context.get("keywords", []))
+        
+        filter_task = Task(
+            description=f"""
+任务：快速筛选以下候选文献，排除明显不相关的文献。
+
+研究主题: {prompt}
+关键词: {keywords}
+
+候选文献（共{len(documents)}篇）:
+{docs_text}
+
+**筛选标准：**
+1. 标题是否与研究主题有明显关联
+2. 摘要中是否包含相关的关键词或概念
+3. **宁可误保留，不要误排除** - 对于不确定的文献，设置 is_selected=true
+
+**评分标准（粗筛）：**
+- 0.6-1.0: 可能相关，保留
+- 0.3-0.6: 不确定，保留
+- 0.0-0.3: 明显不相关，排除
+
+**输出要求：**
+- 返回一个 JSON 数组
+- 每篇文献都需要给出结果
+- 粗筛阶段不需要 summary 和 highlights，可以为空
+""",
+            expected_output="""[
+  {"external_id": "id1", "is_selected": true, "score": 0.7, "summary": "", "highlights": []},
+  {"external_id": "id2", "is_selected": false, "score": 0.2, "summary": "", "highlights": []},
+  ...
+]""",
+            agent=analyst,
+        )
+        
+        crew = Crew(
+            agents=[analyst],
+            tasks=[filter_task],
+            process=Process.sequential,
+            verbose=True,
+        )
+        return crew
+
+    def build_fine_filtering_crew(self, context: Dict[str, Any], documents: List[Dict[str, Any]]) -> Crew:
+        """Build crew for fine filtering - detailed evaluation of multiple documents."""
+        settings = get_settings()
+        
+        ai_config = context.get("ai_config") or {}
+        filter_model = ai_config.get("model") if ai_config.get("model") else settings.ai.filter_model
+        
+        analyst = self._build_agent(
+            name="fine-filter-analyst",
+            role="文献精细评估专家",
+            goal="仔细阅读文献的完整摘要，精确评估其与研究主题的相关性",
+            backstory="你是经验丰富的科研人员，擅长深入分析文献内容，准确判断其学术价值和与研究主题的相关程度。",
+            model_override=filter_model,
+        )
+        
+        # Build detailed document context
+        docs_text = "\n\n---\n\n".join([
+            f"【文献 {i+1}】\n"
+            f"ID: {doc.get('external_id', '')}\n"
+            f"标题: {doc.get('title', '无标题')}\n"
+            f"作者: {', '.join(doc.get('authors', [])[:5]) if doc.get('authors') else '未知'}\n"
+            f"关键词: {', '.join(doc.get('keywords', [])) if doc.get('keywords') else '无'}\n"
+            f"完整摘要:\n{doc.get('abstract', '无摘要')}"
+            for i, doc in enumerate(documents)
+        ])
+        
+        prompt = context.get("prompt", "")
+        keywords = ", ".join(context.get("keywords", []))
+        
+        # 获取自定义筛选提示词
+        filter_config = context.get("filter_config") or {}
+        custom_filter_prompt = ""
+        if isinstance(filter_config, dict):
+            prompt_value = filter_config.get("filter_prompt")
+            if prompt_value:
+                custom_filter_prompt = str(prompt_value).strip()
+        
+        evaluation_guide = custom_filter_prompt if custom_filter_prompt else DEFAULT_FILTER_PROMPT
+        
+        filter_task = Task(
+            description=f"""
+任务：精细评估以下{len(documents)}篇文献与研究主题的相关性。
+
+研究主题: {prompt}
+关键词: {keywords}
+
+{docs_text}
+
+{evaluation_guide}
+
+**输出要求：**
+- 返回一个 JSON 数组，包含所有 {len(documents)} 篇文献的评估结果
+- 每篇文献都需要提供 summary（中文总结）和 highlights（中文亮点）
+- 仔细阅读每篇文献的完整摘要后再做判断
+""",
+            expected_output="""[
+  {
+    "external_id": "id1",
+    "is_selected": true,
+    "score": 0.85,
+    "summary": "（中文）该文献的核心内容和选择理由",
+    "highlights": ["亮点1", "亮点2", "亮点3"]
+  },
+  ...
+]""",
+            agent=analyst,
+        )
+        
+        crew = Crew(
+            agents=[analyst],
+            tasks=[filter_task],
+            process=Process.sequential,
+            verbose=True,
+        )
+        return crew
+
     def build_summary_crew(self, context: Dict[str, Any], documents: List[Dict[str, Any]]) -> Crew:
         """Build crew for document summarization with trend analysis and custom templates."""
         settings = get_settings()

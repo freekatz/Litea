@@ -344,7 +344,7 @@
     ></div>
 
     <!-- 图表分析面板 -->
-    <DocumentCharts :documents="filteredDocuments" :style="{ width: rightPanelWidth + 'px' }" />
+    <DocumentCharts :taskId="selectedTaskId" :style="{ width: rightPanelWidth + 'px' }" />
 
     <!-- 任务表单弹窗 -->
     <TaskForm
@@ -547,10 +547,11 @@ const totalDocuments = ref(0)
 const activeTasks = computed(() => tasks.value.filter((t: any) => t.status === 'active'))
 const inactiveTasks = computed(() => tasks.value.filter((t: any) => t.status === 'inactive'))
 
+// 过滤后的文档（前端本地筛选，用于搜索和排序）
 const filteredDocuments = computed(() => {
   let result = documents.value
   
-  // 文本搜索
+  // 文本搜索（本地搜索已加载的文档）
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(
@@ -579,16 +580,26 @@ const filteredDocuments = computed(() => {
   return result
 })
 
-// 分页后的文档列表
+// 显示的文档列表
 const paginatedDocuments = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredDocuments.value.slice(start, end)
+  // 如果有本地筛选，需要前端分页
+  if (searchQuery.value || sourceFilter.value) {
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    return filteredDocuments.value.slice(start, end)
+  }
+  // 否则后端已分页，直接返回
+  return filteredDocuments.value
 })
 
-// 基于过滤后的文档计算总页数
+// 基于后端返回的总数计算总页数
 const totalFilteredPages = computed(() => {
-  return Math.max(1, Math.ceil(filteredDocuments.value.length / pageSize.value))
+  // 如果有本地筛选，使用本地筛选后的数量
+  if (searchQuery.value || sourceFilter.value) {
+    return Math.max(1, Math.ceil(filteredDocuments.value.length / pageSize.value))
+  }
+  // 否则使用后端返回的总数
+  return Math.max(1, Math.ceil(totalDocuments.value / pageSize.value))
 })
 
 const sources = computed(() => {
@@ -615,9 +626,16 @@ const isAllSelected = computed(() => {
 
 const hasSelection = computed(() => selectedDocIds.value.size > 0)
 
-// 监听筛选条件变化,重置页码
-watch([searchQuery, sourceFilter, sortBy, selectedTaskId], () => {
+// 监听筛选条件变化,重置页码并重新加载
+watch([searchQuery, sourceFilter, sortBy], () => {
   currentPage.value = 1
+  // 本地筛选，不需要重新加载
+})
+
+// 监听任务ID变化，重置页码并重新加载
+watch(selectedTaskId, () => {
+  currentPage.value = 1
+  // loadDocuments 会在点击任务时手动调用
 })
 
 // 监听当前页码,确保不超出范围
@@ -776,17 +794,21 @@ async function loadDocuments() {
   loading.value = true
   try {
     let response
+    // 如果有本地搜索条件，加载更多数据以便本地筛选
+    const loadLimit = (searchQuery.value || sourceFilter.value) ? 500 : pageSize.value
+    const loadOffset = (searchQuery.value || sourceFilter.value) ? 0 : (currentPage.value - 1) * pageSize.value
+    
     if (selectedTaskId.value) {
       // 加载特定任务的文献
       response = await documentsApi.listForTask(selectedTaskId.value, {
-        limit: pageSize.value,
-        offset: (currentPage.value - 1) * pageSize.value
+        limit: loadLimit,
+        offset: loadOffset
       })
     } else {
       // 加载所有文献
       response = await documentsApi.list({
-        limit: pageSize.value,
-        offset: (currentPage.value - 1) * pageSize.value
+        limit: loadLimit,
+        offset: loadOffset
       })
     }
     const rawDocs = response.data?.items || []

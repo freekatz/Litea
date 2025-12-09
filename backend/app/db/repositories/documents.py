@@ -37,12 +37,17 @@ class DocumentRepository:
         )
         return list(result.scalars().all())
 
-    async def get_by_external(self, external_id: str, source_name: str) -> Optional[models.Document]:
+    async def get_by_external(self, external_id: str, source_name: str, task_id: Optional[int] = None) -> Optional[models.Document]:
+        """Get document by external_id and source_name, optionally within a specific task."""
+        conditions = [
+            models.Document.external_id == external_id,
+            models.Document.source_name == source_name,
+        ]
+        if task_id is not None:
+            conditions.append(models.Document.task_id == task_id)
+        
         result = await self._session.execute(
-            select(models.Document).where(
-                models.Document.external_id == external_id,
-                models.Document.source_name == source_name,
-            )
+            select(models.Document).where(*conditions)
         )
         return result.scalar_one_or_none()
 

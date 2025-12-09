@@ -103,7 +103,8 @@ class TaskRun(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    __table_args__ = (UniqueConstraint("external_id", "source_name", name="uq_document_source"),)
+    # 修改唯一约束：同一任务内相同来源的文献唯一，不同任务可以有相同的文献
+    __table_args__ = (UniqueConstraint("task_id", "external_id", "source_name", name="uq_task_document_source"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)

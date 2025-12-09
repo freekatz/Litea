@@ -81,6 +81,7 @@ class RetrievalSettings(BaseModel):
 
 class AuthSettings(BaseModel):
     """Authentication settings."""
+    enabled: bool = Field(default=True, description="Enable/disable API authentication")
     admin_password: str = Field(default="admin123")
     jwt_secret: str = Field(default="your-secret-key-change-in-production")
     jwt_algorithm: str = "HS256"

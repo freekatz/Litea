@@ -194,7 +194,8 @@ class TaskRunner:
                 if is_selected:
                     selected_count += 1
                 
-                existing = await doc_repo.get_by_external(doc["external_id"], source_name)
+                # 只在当前任务内查找重复文献
+                existing = await doc_repo.get_by_external(doc["external_id"], source_name, task_id=run.task_id)
                 if existing:
                     # Update existing document fields
                     existing.is_filtered_in = is_selected  # 根据is_selected设置

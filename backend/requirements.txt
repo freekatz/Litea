@@ -2,6 +2,7 @@
 fastapi
 uvicorn
 python-multipart
+loguru
 
 # Database
 sqlalchemy
@@ -11,6 +12,7 @@ aiosqlite
 crewai==1.7.0
 langchain
 langchain-openai
+langchain_community
 
 # HTTP & Async
 httpx==0.28.1
