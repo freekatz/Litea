@@ -158,6 +158,7 @@
           文献列表
           <span v-if="selectedTaskId && selectedTaskName" class="task-filter-badge">
             ({{ selectedTaskName }})
+            <button @click="clearTaskFilter" class="btn-clear-filter" title="查看所有文献">×</button>
           </span>
         </h2>
         <div class="header-actions">
@@ -916,20 +917,34 @@ function handleCreateTask() {
   showTaskModal.value = true
 }
 
-async function handleTaskSaved() {
+async function handleTaskSaved(savedTask?: any) {
   showTaskModal.value = false
   // 判断是编辑还是创建：有editingTask且有id才是编辑
   const isEditing = editingTask.value !== null && (editingTask.value as any)?.id
   editingTask.value = null
   await loadTasks()
-  await loadDocuments()
-  showToast(isEditing ? '任务已更新' : '任务已创建')
+  
+  // 如果是创建新任务，不自动切换到新任务（因为新任务还没有文献）
+  // 如果是编辑任务，保持当前选择并刷新文献列表
+  if (isEditing) {
+    await loadDocuments()
+    showToast('任务已更新')
+  } else {
+    // 创建新任务后，清除当前选择，显示所有文献
+    // 或者保持当前选择不变
+    showToast('任务已创建，运行后将生成文献列表')
+  }
 }
 
 async function handleRefreshDocuments() {
   await loadDocuments()
   await loadAnalytics()
   showToast('文献列表已刷新')
+}
+
+async function clearTaskFilter() {
+  selectedTaskId.value = null
+  await loadDocuments()
 }
 
 function handlePageChange(page: number) {
@@ -1040,6 +1055,29 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2);
   padding: 4px 10px;
   border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-clear-filter {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-clear-filter:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .header-actions {
